@@ -5,8 +5,13 @@ defmodule MlbFan.Mcp.Tools.GetPlayerStreaksTest do
 
   alias MlbFan.Mcp.Tools.GetPlayerStreaks
 
-  # No players are mirrored, so each id resolves to an empty streak with no
-  # outbound fetch — this isolates the trust-boundary clamping behavior.
+  # No players are mirrored, so each id resolves to an empty streak. resolve_player
+  # tries to enrich a missing player via /people; stub it to an empty body so the
+  # test stays offline and isolates the trust-boundary clamping behavior.
+  setup do
+    Req.Test.stub(MlbFan.ReqStub, fn conn -> Req.Test.json(conn, %{}) end)
+    :ok
+  end
 
   test "more than 25 ids are truncated to 25 with a note in the result" do
     ids = Enum.to_list(1..100)
