@@ -1,0 +1,11 @@
+{
+  "sessions": [
+    {
+      "session_id": "113e7362-42a9-4376-8f3d-0b2b7e13ff2b",
+      "session_name": "20260703_143326_mlb-fan-agent",
+      "branch": "on-loop/mlb-fan-agent",
+      "status": "active",
+      "created_at": "2026-07-03T14:33:26Z"
+    }
+  ]
+}

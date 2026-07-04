@@ -1,0 +1,36 @@
+# Sobelow 0.14.x baseline configuration for mlb_fan.
+#
+# Known-accepted findings (reviewed 2026-07-03, security agent PASS):
+#
+#   Config.CSP - Missing Content-Security-Policy in the browser pipeline.
+#     Accepted: single-user local research tool; no cross-origin resources.
+#     Recommendation: add a CSP header plug if the tool is ever exposed publicly.
+#
+#   DOS.StringToAtom - String.to_atom in MlbFan.Stats.Api.build_url/3 (line 45).
+#     Accepted: the key is pulled from our own Endpoints registry (a finite, known
+#     atom set defined at compile time) — not from user/model free-text input.
+#     The atom table is bounded and stable.
+#
+#   XSS.Raw - Phoenix.HTML.raw/1 in MlbFanWeb.Markdown.to_safe_html/1 (line 20).
+#     Accepted: intentional by design. Raw HTML is only called AFTER the full
+#     sanitization pipeline: Earmark (escape: true) -> HtmlSanitizeEx.markdown_html
+#     -> drop unsafe hrefs -> drop <img> tags. Tested by markdown_test.exs.
+#
+# Do not use `ignore:` to suppress findings globally — each new scan should surface
+# any regressions. Review CI output manually if the finding count changes.
+#
+# To regenerate this file from CLI flags:
+#   mix sobelow --router lib/mlb_fan_web/router.ex --private --save-config
+[
+  exit: false,
+  format: "txt",
+  ignore_files: [],
+  ignore: [],
+  out: nil,
+  private: true,
+  router: "lib/mlb_fan_web/router.ex",
+  skip: false,
+  threshold: :low,
+  verbose: false,
+  version: false
+]
