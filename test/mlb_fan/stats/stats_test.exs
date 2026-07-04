@@ -167,4 +167,84 @@ defmodule MlbFan.StatsTest do
 
     assert length(result["matchups"]) == 25
   end
+
+  # Regression: a player first seen via play-by-play has no current_team_mlb_id
+  # (the base /people response omits currentTeam), so ensure_player_window used
+  # to be a no-op and every streak came back games_scanned: 0. resolve_player now
+  # fetches /people/{id}?hydrate=currentTeam to populate the team.
+  test "player_streaks enriches a team-less player from /people and then scans games" do
+    # Seed the player WITHOUT a team, as play-by-play ingestion leaves it.
+    Repo.insert!(Player.changeset(%Player{}, %{mlb_id: 701_675, full_name: "Nathan Church"}))
+
+    Req.Test.stub(MlbFan.ReqStub, fn conn ->
+      cond do
+        String.contains?(conn.request_path, "/people/search") ->
+          Req.Test.json(conn, %{"people" => []})
+
+        String.contains?(conn.request_path, "/people/") ->
+          Req.Test.json(conn, %{
+            "people" => [
+              %{
+                "id" => 701_675,
+                "fullName" => "Nathan Church",
+                "batSide" => %{"code" => "L"},
+                "primaryPosition" => %{"abbreviation" => "LF"},
+                "currentTeam" => %{"id" => 111, "name" => "Boston Red Sox"},
+                "active" => true
+              }
+            ]
+          })
+
+        String.contains?(conn.request_path, "/schedule") ->
+          Req.Test.json(conn, TestFixtures.schedule_body(date: "2026-07-02", state: "Final"))
+
+        String.contains?(conn.request_path, "/boxscore") ->
+          Req.Test.json(conn, boxscore_with_line(701_675, 111))
+
+        true ->
+          Req.Test.json(conn, %{})
+      end
+    end)
+
+    result = Stats.player_streaks([701_675], window_days: 5, as_of: "2026-07-02")
+    [player] = result["players"]
+
+    # The core symptom: streaks are now actually computed from mirrored box scores.
+    assert player["games_scanned"] >= 1
+    assert player["hr_streak"] == 1
+    assert player["hitting_streak"] == 1
+
+    # The actual fix: the missing team was fetched and persisted.
+    assert Repo.get_by(Player, mlb_id: 701_675).current_team_mlb_id == 111
+  end
+
+  defp boxscore_with_line(person_id, team_id) do
+    %{
+      "teams" => %{
+        "home" => %{"team" => %{"id" => 147}, "players" => %{}},
+        "away" => %{
+          "team" => %{"id" => team_id},
+          "players" => %{
+            "ID#{person_id}" => %{
+              "person" => %{"id" => person_id, "fullName" => "Nathan Church"},
+              "battingOrder" => "100",
+              "stats" => %{
+                "batting" => %{
+                  "plateAppearances" => 4,
+                  "atBats" => 4,
+                  "hits" => 2,
+                  "doubles" => 0,
+                  "triples" => 0,
+                  "homeRuns" => 1,
+                  "rbi" => 1,
+                  "baseOnBalls" => 0,
+                  "strikeOuts" => 1
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  end
 end
