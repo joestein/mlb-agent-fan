@@ -110,7 +110,8 @@ defmodule MlbFan.Agent.Conversation do
             %{
               text: error_text(reason),
               messages: messages,
-              message_id: message_id
+              message_id: message_id,
+              error: true
             }
         end
 
@@ -138,6 +139,11 @@ defmodule MlbFan.Agent.Conversation do
   end
 
   defp maybe_cache(nil, _result, _mid), do: :ok
+
+  # Never cache a failed turn — otherwise an API/transport error (e.g. a
+  # billing 400) gets stored for (question, date) and every later click serves
+  # that error for free instead of retrying.
+  defp maybe_cache(_key, %{error: true}, _mid), do: :ok
 
   defp maybe_cache({question_key, for_date}, result, message_id) do
     AnswerCache.put(question_key, for_date, result.text, CostTracker.message_total(message_id))
