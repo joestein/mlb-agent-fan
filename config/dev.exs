@@ -5,6 +5,10 @@ config :mlb_fan, MlbFan.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
+  # docker-compose publishes the DB on host port 15432 (to avoid clashing with a
+  # local Postgres on 5432). For local dev against that container, run mix with
+  # DB_PORT=15432; defaults to 5432 for a native/local Postgres.
+  port: String.to_integer(System.get_env("DB_PORT", "5432")),
   database: "mlb_fan_dev",
   stacktrace: true,
   show_sensitive_data_on_connection_error: true,

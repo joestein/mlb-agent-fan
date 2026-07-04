@@ -67,8 +67,17 @@ defmodule MlbFan.Llm.Anthropic do
   defp do_stream(body, key, on_delta) do
     into = fn {:data, chunk}, {req, resp} ->
       st = resp.private[:mlbfan] || initial_state()
-      {events, sse} = Sse.feed(st.sse, chunk)
-      st = Enum.reduce(events, %{st | sse: sse}, fn ev, acc -> apply_event(ev, acc, on_delta) end)
+
+      st =
+        if resp.status == 200 do
+          {events, sse} = Sse.feed(st.sse, chunk)
+          Enum.reduce(events, %{st | sse: sse}, fn ev, acc -> apply_event(ev, acc, on_delta) end)
+        else
+          # Non-200: the body is a JSON error, not an SSE stream. Buffer it raw so
+          # the real Anthropic message (e.g. billing, rate limit) can be surfaced.
+          %{st | error_body: st.error_body <> chunk}
+        end
+
       {:cont, {req, %{resp | private: Map.put(resp.private, :mlbfan, st)}}}
     end
 
@@ -89,9 +98,16 @@ defmodule MlbFan.Llm.Anthropic do
       {:ok, %Req.Response{status: 200, private: private}} ->
         {:ok, finalize(private[:mlbfan] || initial_state())}
 
-      {:ok, %Req.Response{status: status}} ->
-        Logger.error("Anthropic API error status=#{status}")
-        {:error, {:api_error, status}}
+      {:ok, %Req.Response{status: status, private: private}} ->
+        st = private[:mlbfan] || initial_state()
+        {message, request_id} = parse_api_error(st.error_body)
+
+        Logger.error(
+          "Anthropic API error status=#{status} request_id=#{request_id || "?"} " <>
+            "message=#{inspect(message)}"
+        )
+
+        {:error, {:api_error, status, message}}
 
       {:error, reason} ->
         Logger.error("Anthropic request failed: #{inspect(reason)}")
@@ -114,9 +130,24 @@ defmodule MlbFan.Llm.Anthropic do
         cache_creation_input_tokens: 0,
         cache_read_input_tokens: 0
       },
-      stop_reason: nil
+      stop_reason: nil,
+      error_body: ""
     }
   end
+
+  # Extract the human-readable message + request_id from a non-200 Anthropic
+  # error body (`{"error": {"message": ...}, "request_id": ...}`).
+  defp parse_api_error(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, %{"error" => %{"message" => message}} = decoded} ->
+        {message, decoded["request_id"]}
+
+      _ ->
+        {nil, nil}
+    end
+  end
+
+  defp parse_api_error(_), do: {nil, nil}
 
   @doc false
   # Public so it can be unit-tested by replaying a fixture event stream.

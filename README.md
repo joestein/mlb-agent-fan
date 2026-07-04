@@ -83,13 +83,17 @@ cp .env.example .env
 # 3. Start the full stack (Postgres + Phoenix release).
 docker compose up --build
 
-# 4. Open http://localhost:4000
+# 4. Open http://localhost:14000
 #    Click "⚾ Who homered yesterday — and their HR streaks"
 #    When it finishes, click "🎯 Who's pitching against them today — and their chances"
 ```
 
-Health check: `http://localhost:4000/health` returns 200.
-MCP endpoint: `http://localhost:4000/mcp` (requires MCP `initialize` handshake before use).
+The web app is published on host port **14000** and Postgres on **15432**
+(container-internal ports are still 4000/5432) to avoid clashing with a local
+Postgres or web server already on the default ports.
+
+Health check: `http://localhost:14000/health` returns 200.
+MCP endpoint: `http://localhost:14000/mcp` (requires MCP `initialize` handshake before use).
 
 ---
 
@@ -99,10 +103,12 @@ MCP endpoint: `http://localhost:4000/mcp` (requires MCP `initialize` handshake b
 # Match the pinned toolchain (Elixir 1.18.4-otp-26):
 asdf install
 
-# Start Postgres only:
+# Start Postgres only (published on host port 15432 — see compose):
 docker compose up -d db
 
-# Install deps, create and migrate the DB, build assets:
+# Install deps, create and migrate the DB, build assets.
+# The compose DB is on 15432, so point local mix at it with DB_PORT:
+export DB_PORT=15432
 mix setup
 
 # Export keys (or put them in your shell profile):
@@ -147,7 +153,8 @@ mix test.unit
 | `SESSION_SPEND_CAP_USD` | Soft per-session spend ceiling (LLM + Exa); further turns refused when reached | `5.00` | No |
 | `EXA_SEARCH_PRICE_USD` | Cost per Exa search (USD) | `0.005` | No |
 | `EXA_CONTENTS_PRICE_USD` | Cost per Exa contents doc (USD) | `0.001` | No |
-| `PORT` | HTTP listen port | `4000` | No |
+| `PORT` | HTTP listen port (container-internal; compose maps host 14000 → 4000) | `4000` | No |
+| `DB_PORT` | Postgres port for local dev/test (`dev.exs`/`test.exs`); set `15432` to use the compose DB | `5432` | No |
 | `PHX_HOST` | Public hostname (sets LiveView URL) | `localhost` | Prod |
 
 Do not commit `.env` — it is git-ignored. Only `.env.example` (no secrets) is committed.

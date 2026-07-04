@@ -17,6 +17,9 @@ config :mlb_fan, MlbFan.Repo,
   username: "postgres",
   password: "postgres",
   hostname: "localhost",
+  # Defaults to 5432 (CI Postgres service + local native Postgres). Override with
+  # DB_PORT to point at a non-default port.
+  port: String.to_integer(System.get_env("DB_PORT", "5432")),
   database: "mlb_fan_test#{System.get_env("MIX_TEST_PARTITION")}",
   pool: Ecto.Adapters.SQL.Sandbox,
   pool_size: System.schedulers_online() * 2

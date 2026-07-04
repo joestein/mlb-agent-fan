@@ -108,7 +108,7 @@ defmodule MlbFan.Agent.Conversation do
 
           {:error, reason} ->
             %{
-              text: "Sorry — I couldn't complete that request (#{inspect(reason)}).",
+              text: error_text(reason),
               messages: messages,
               message_id: message_id
             }
@@ -164,6 +164,22 @@ defmodule MlbFan.Agent.Conversation do
     "This session has reached its spending cap of $#{cap}. No further AI calls will be made " <>
       "for this session. To continue, raise SESSION_SPEND_CAP_USD (or the " <>
       ":session_spend_cap_usd config) and start a new session."
+  end
+
+  # Turn an internal error reason into a user-facing message. The Anthropic
+  # client surfaces the real API message (e.g. a billing/credits or rate-limit
+  # notice, which Anthropic returns as HTTP 400) so the user sees the actual
+  # cause instead of an opaque error tuple.
+  defp error_text({:api_error, status, message}) when is_binary(message) and message != "" do
+    "Sorry — the Anthropic API rejected this request (HTTP #{status}): #{message}"
+  end
+
+  defp error_text(:no_api_key) do
+    "No Anthropic API key is configured. Set ANTHROPIC_API_KEY in your environment and restart."
+  end
+
+  defp error_text(reason) do
+    "Sorry — I couldn't complete that request (#{inspect(reason)})."
   end
 
   defp broadcast(session_id, message) do
