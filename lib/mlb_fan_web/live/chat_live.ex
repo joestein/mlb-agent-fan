@@ -195,7 +195,7 @@ defmodule MlbFanWeb.ChatLive do
         <div :for={msg <- @messages} id={msg.id} class={message_class(msg)}>
           <div
             :if={msg.role == :assistant and msg.done? and msg.id != "welcome"}
-            class="prose prose-sm max-w-none"
+            class="prose prose-sm max-w-none text-zinc-800"
           >
             {Markdown.to_safe_html(msg.text)}
           </div>
@@ -261,6 +261,12 @@ defmodule MlbFanWeb.ChatLive do
     """
   end
 
-  defp message_class(%{role: :user}), do: "rounded-lg bg-zinc-100 p-3 text-sm ml-auto max-w-[80%]"
-  defp message_class(_), do: "rounded-lg bg-white p-3 text-sm"
+  # text-zinc-800 forces dark text on the light bubbles. Without it, content that
+  # doesn't set its own colour (the user message, and the markdown answer when the
+  # Typography `prose` styles don't apply) inherits the dark theme's light body
+  # text and is nearly invisible on white.
+  defp message_class(%{role: :user}),
+    do: "rounded-lg bg-zinc-100 p-3 text-sm text-zinc-800 ml-auto max-w-[80%]"
+
+  defp message_class(_), do: "rounded-lg bg-white p-3 text-sm text-zinc-800"
 end
