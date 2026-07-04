@@ -239,4 +239,36 @@ defmodule MlbFan.Stats.StreaksTest do
     # Only 2 appeared games
     assert r.games_scanned == 2
   end
+
+  test "streak orders by real date across a month boundary (regression: Date structs mis-sorted)" do
+    # Late-June 0-HR games then an early-July HR. If the sort key holds a raw
+    # %Date{} it compares by Erlang term order (effectively day-of-month), so
+    # July-03 (day 3) sorts before June-30 (day 30): the most recent game is
+    # mistaken for June-30, the streak breaks there, and the July-03 HR is lost.
+    lines = [
+      line("2026-06-28", hr: 0, ab: 4, h: 1),
+      line("2026-06-30", hr: 0, ab: 4, h: 0),
+      line("2026-07-01", hr: 0, ab: 4, h: 0),
+      line("2026-07-02", hr: 0, ab: 3, h: 0),
+      line("2026-07-03", hr: 2, ab: 3, h: 2)
+    ]
+
+    r = Streaks.compute(lines, window_days: 30)
+    assert r.hr_streak == 1
+    assert r.hitting_streak == 1
+    assert r.last_hr_date == ~D[2026-07-03]
+  end
+
+  test "a multi-game streak spanning a month boundary counts every game in date order" do
+    lines = [
+      line("2026-06-29", hr: 0, ab: 4, h: 0),
+      line("2026-06-30", hr: 1, ab: 4, h: 1),
+      line("2026-07-01", hr: 1, ab: 4, h: 2),
+      line("2026-07-02", hr: 1, ab: 3, h: 1)
+    ]
+
+    r = Streaks.compute(lines, window_days: 30)
+    assert r.hr_streak == 3
+    assert r.last_hr_date == ~D[2026-07-02]
+  end
 end

@@ -118,8 +118,24 @@ defmodule MlbFan.Stats.Streaks do
   # Spec §8.2 rule 1/5: order by (game_date, game_number). Fall back to game_pk
   # only when game_number is absent (e.g. legacy rows), since a split/rescheduled
   # doubleheader can have game_pk order that disagrees with game_number order.
+  #
+  # game_date MUST be reduced to a chronological ordinal — a raw %Date{} in the
+  # sort key compares by Erlang term order (effectively day, then month, then
+  # year), which mis-orders any window that crosses a month boundary and breaks
+  # the streak at the wrong game.
   defp sort_key(g),
-    do: {field(g, :game_date), field(g, :game_number) || field(g, :game_pk) || 0}
+    do: {date_ordinal(field(g, :game_date)), field(g, :game_number) || field(g, :game_pk) || 0}
+
+  defp date_ordinal(%Date{} = d), do: Date.to_gregorian_days(d)
+
+  defp date_ordinal(s) when is_binary(s) do
+    case Date.from_iso8601(s) do
+      {:ok, d} -> Date.to_gregorian_days(d)
+      _ -> 0
+    end
+  end
+
+  defp date_ordinal(_), do: 0
 
   defp field(g, key) do
     value =
