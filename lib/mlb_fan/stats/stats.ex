@@ -591,7 +591,35 @@ defmodule MlbFan.Stats do
     }
   end
 
+  # Return the mirrored player. Players first seen via play-by-play carry no
+  # current_team_mlb_id (the base /people response omits currentTeam), which
+  # would make ensure_player_window/3 a no-op and yield games_scanned: 0. When
+  # the team is missing, fetch /people/{id}?hydrate=currentTeam (cached) and
+  # upsert so the streak window can be built.
   defp resolve_player(id) do
+    case Repo.get_by(Player, mlb_id: id) do
+      %Player{current_team_mlb_id: team} = player when not is_nil(team) -> player
+      _ -> enrich_player(id)
+    end
+  end
+
+  defp enrich_player(id) do
+    query = %{"hydrate" => "currentTeam"}
+    key = Map.put(query, "person_id", id)
+
+    case Cache.fetch_or_fetch("person", key, fn ->
+           Api.get("person", %{"person_id" => id}, query)
+         end) do
+      {:ok, body, _} ->
+        case Parsers.parse_person(body) do
+          %{mlb_id: mlb_id} = attrs when not is_nil(mlb_id) -> upsert_player(attrs)
+          _ -> :ok
+        end
+
+      _ ->
+        :ok
+    end
+
     Repo.get_by(Player, mlb_id: id)
   end
 end
