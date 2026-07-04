@@ -108,9 +108,10 @@ defmodule MlbFan.Agent.Conversation do
 
           {:error, reason} ->
             %{
-              text: "Sorry — I couldn't complete that request (#{inspect(reason)}).",
+              text: error_text(reason),
               messages: messages,
-              message_id: message_id
+              message_id: message_id,
+              error: true
             }
         end
 
@@ -139,6 +140,11 @@ defmodule MlbFan.Agent.Conversation do
 
   defp maybe_cache(nil, _result, _mid), do: :ok
 
+  # Never cache a failed turn — otherwise an API/transport error (e.g. a
+  # billing 400) gets stored for (question, date) and every later click serves
+  # that error for free instead of retrying.
+  defp maybe_cache(_key, %{error: true}, _mid), do: :ok
+
   defp maybe_cache({question_key, for_date}, result, message_id) do
     AnswerCache.put(question_key, for_date, result.text, CostTracker.message_total(message_id))
   end
@@ -164,6 +170,22 @@ defmodule MlbFan.Agent.Conversation do
     "This session has reached its spending cap of $#{cap}. No further AI calls will be made " <>
       "for this session. To continue, raise SESSION_SPEND_CAP_USD (or the " <>
       ":session_spend_cap_usd config) and start a new session."
+  end
+
+  # Turn an internal error reason into a user-facing message. The Anthropic
+  # client surfaces the real API message (e.g. a billing/credits or rate-limit
+  # notice, which Anthropic returns as HTTP 400) so the user sees the actual
+  # cause instead of an opaque error tuple.
+  defp error_text({:api_error, status, message}) when is_binary(message) and message != "" do
+    "Sorry — the Anthropic API rejected this request (HTTP #{status}): #{message}"
+  end
+
+  defp error_text(:no_api_key) do
+    "No Anthropic API key is configured. Set ANTHROPIC_API_KEY in your environment and restart."
+  end
+
+  defp error_text(reason) do
+    "Sorry — I couldn't complete that request (#{inspect(reason)})."
   end
 
   defp broadcast(session_id, message) do

@@ -1,12 +1,19 @@
 # ── Build stage ───────────────────────────────────────────────────────────
-FROM elixir:1.17-otp-27-slim AS build
+# Elixir 1.18+ is required: jido and hermes_mcp declare "~> 1.18", and
+# hermes_mcp uses the JSON module (JSON.Encoder) that only exists in 1.18+.
+# Matches the local toolchain (.tool-versions pins Elixir 1.18.x).
+FROM elixir:1.18-otp-27-slim AS build
 
 ENV MIX_ENV=prod
 
 WORKDIR /app
 
+# ca-certificates is required so Erlang's pubkey_os_cacerts can find a CA bundle
+# for the HTTPS fetch in `mix local.hex` (without it OTP 27 crashes with
+# :no_cacerts_found). build-essential + git are needed to compile native deps.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      build-essential git \
+      build-essential git ca-certificates \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mix local.hex --force && mix local.rebar --force

@@ -96,7 +96,12 @@ defmodule MlbFan.MixProject do
       "test.unit": ["test --no-start --exclude db --exclude req"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
       "assets.build": ["compile", "tailwind mlb_fan", "esbuild mlb_fan"],
+      # "compile" first so the Phoenix 1.8 colocated assets
+      # (_build/<env>/phoenix-colocated/mlb_fan/colocated.{css,js}, imported by
+      # assets/css/app.css and assets/js/app.js) are generated before
+      # tailwind/esbuild resolve them — mirrors the assets.build alias above.
       "assets.deploy": [
+        "compile",
         "tailwind mlb_fan --minify",
         "esbuild mlb_fan --minify",
         "phx.digest"
