@@ -1,0 +1,12 @@
+{
+  "version": "1.1",
+  "session_id": "113e7362-42a9-4376-8f3d-0b2b7e13ff2b",
+  "session_name": "20260703_143326_mlb-fan-agent",
+  "phase": "GIT",
+  "prompt": "Build an MLB Fan Agent: an Elixir port of the MLB-StatsAPI Python library (https://github.com/toddrob99/MLB-StatsAPI) exposed through an MCP server (tools + prompts) consumed by a Jido agent, with a Phoenix LiveView chat frontend (default cursor in the chat box, session opens with 'Welcome to MLB Fan Agent'), wired to the Anthropic API. Postgres mirrors MLB stats data and acts as a read-through cache: every query checks Postgres first, falls back to the MLB Stats API on miss, and writes results back. Must support queries like 'who hit a HR yesterday' and 'who has a 7-day hitting streak' (requires box scores for the last 7 days, cache-or-fetch). Deep player research (pitcher-vs-hitter matchup likelihood) uses Exa.ai like the sports-fanatic project at /Users/charmalloc/dev/sports-fanatic. Two default clickable questions: (1) 'Everyone that got a HR yesterday and their current HR streak' and (2) 'Who from this list is pitching against whom today and what are their chances of doing well based on pitcher and hitter stats' — the second fans out many Exa calls to research multi-HR potential (Schwarber, Caminero, Judge-type multi-HR hitters). Include docker compose, .env-based keys (ANTHROPIC_API_KEY, EXA_API_KEY), and a proper cost model for the Anthropic usage. Purpose: daily betting research on HR streaks.",
+  "branch": "on-loop/mlb-fan-agent",
+  "worktree_path": ".claude/worktrees/mlb-fan-agent",
+  "session_dir": ".on-loop/sessions/20260703_143326_mlb-fan-agent",
+  "retries": {"test": 0, "security": 1, "review": 1},
+  "ultracode": true
+}

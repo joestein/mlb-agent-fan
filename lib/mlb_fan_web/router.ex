@@ -1,0 +1,47 @@
+defmodule MlbFanWeb.Router do
+  use MlbFanWeb, :router
+
+  pipeline :browser do
+    plug :accepts, ["html"]
+    plug :fetch_session
+    plug :fetch_live_flash
+    plug :put_root_layout, html: {MlbFanWeb.Layouts, :root}
+    plug :protect_from_forgery
+    plug :put_secure_browser_headers
+  end
+
+  pipeline :api do
+    plug :accepts, ["json"]
+  end
+
+  scope "/", MlbFanWeb do
+    pipe_through :browser
+
+    live "/", ChatLive, :index
+  end
+
+  scope "/", MlbFanWeb do
+    get "/health", HealthController, :index
+  end
+
+  # MCP server (Streamable HTTP) — exposes the 9 tools + 2 prompts to any MCP
+  # client (e.g. Claude Desktop) and is also what the internal Jido agent's
+  # MCP client can connect to. Mounted per spec wiring (B).
+  forward "/mcp", Hermes.Server.Transport.StreamableHTTP.Plug, server: MlbFan.Mcp.Server
+
+  # Enable LiveDashboard in development
+  if Application.compile_env(:mlb_fan, :dev_routes) do
+    # If you want to use the LiveDashboard in production, you should put
+    # it behind authentication and allow only admins to access it.
+    # If your application does not have an admins-only section yet,
+    # you can use Plug.BasicAuth to set up some basic authentication
+    # as long as you are also using SSL (which you should anyway).
+    import Phoenix.LiveDashboard.Router
+
+    scope "/dev" do
+      pipe_through :browser
+
+      live_dashboard "/dashboard", metrics: MlbFanWeb.Telemetry
+    end
+  end
+end

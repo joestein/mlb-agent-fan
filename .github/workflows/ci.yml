@@ -1,0 +1,113 @@
+name: CI
+
+# Run on every push and every pull request (all branches).
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    # ── Postgres service (matches config/test.exs: username/password/hostname) ──
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: mlb_fan_test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    env:
+      MIX_ENV: test
+      # SECRET_KEY_BASE is hardcoded in config/test.exs (standard Phoenix pattern);
+      # no env var needed for tests.
+
+    steps:
+      # ── Checkout ─────────────────────────────────────────────────────────
+      - uses: actions/checkout@v4
+
+      # ── Elixir / OTP toolchain ───────────────────────────────────────────
+      # Reads .tool-versions: elixir 1.18.4-otp-26  →  Elixir 1.18.4, OTP 26.
+      - name: Set up Beam (Elixir 1.18.4 / OTP 26)
+        uses: erlef/setup-beam@v1
+        with:
+          version-file: .tool-versions
+          version-type: strict
+
+      # ── Dependency cache ─────────────────────────────────────────────────
+      # Cache deps/ keyed on mix.lock so any lockfile change busts the cache.
+      - name: Restore deps cache
+        uses: actions/cache@v4
+        id: cache-deps
+        with:
+          path: deps
+          key: ${{ runner.os }}-deps-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-deps-
+
+      # Cache compiled artefacts keyed on mix.lock + MIX_ENV.
+      - name: Restore _build cache
+        uses: actions/cache@v4
+        with:
+          path: _build
+          key: ${{ runner.os }}-build-test-${{ hashFiles('mix.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-build-test-
+
+      # ── Install dependencies ─────────────────────────────────────────────
+      - name: Install Mix dependencies
+        if: steps.cache-deps.outputs.cache-hit != 'true'
+        run: mix deps.get
+
+      # Even on a cache hit, ensure deps are compiled (compile is idempotent).
+      - name: Compile dependencies
+        run: mix deps.compile
+
+      # ── Code quality ─────────────────────────────────────────────────────
+      - name: Check formatting
+        run: mix format --check-formatted
+
+      - name: Run Credo (non-strict)
+        # mix credo (without --strict) passes; strict is tracked as tech-debt
+        # in coding.md for the handful of higher-complexity functions.
+        run: mix credo
+
+      # ── Compile with warnings-as-errors ──────────────────────────────────
+      - name: Compile (warnings as errors)
+        run: mix compile --warnings-as-errors
+
+      # ── Dependency security audit ─────────────────────────────────────────
+      # The earmark 1.4.49 advisory (GHSA-52mm-h59v-f3c7 / CVE-2026-48591)
+      # is mitigated by the Earmark escape:true + HtmlSanitizeEx sanitizer
+      # pipeline (see security.md LOW-1).  We ignore this specific advisory by
+      # ID so that any NEW advisory causes a non-zero exit and a CI failure.
+      - name: Dependency audit (mix deps.audit)
+        run: mix deps.audit --ignore-advisory-ids GHSA-52mm-h59v-f3c7
+
+      # ── Static security scan ─────────────────────────────────────────────
+      # Sobelow finds three known-accepted items (see .sobelow-conf for details):
+      #   Config.CSP   — no CSP header; accepted for single-user local tool.
+      #   DOS.StringToAtom — bounded atom set from our own Endpoints registry.
+      #   XSS.Raw      — raw() called AFTER the full sanitizer pipeline.
+      # exit: false in .sobelow-conf ensures sobelow always exits 0 so CI
+      # does not block on these accepted findings; review the output on changes.
+      - name: Security scan (sobelow)
+        run: mix sobelow --config
+
+      # ── Test suite ───────────────────────────────────────────────────────
+      # The `test` alias in mix.exs runs:
+      #   ecto.create --quiet, ecto.migrate --quiet, then ExUnit.
+      # Postgres is already healthy (service health-check above).
+      # config/test.exs connects via username/password/hostname (no DATABASE_URL
+      # needed); secret_key_base is hardcoded there (standard Phoenix test pattern).
+      - name: Run tests
+        run: mix test
