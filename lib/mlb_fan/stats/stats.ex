@@ -201,7 +201,15 @@ defmodule MlbFan.Stats do
       |> cap_players()
       |> Enum.map(fn id ->
         ensure_player_window(id, as_of, window_days)
-        compute_player_streak(id, as_of, window_days)
+        result = compute_player_streak(id, as_of, window_days)
+
+        # ensure_player_window decodes many large box-score JSON bodies. Those
+        # are off-heap reference-counted binaries that the BEAM only reclaims on
+        # GC; a tool process that allocates little heap can accumulate them until
+        # the node is OOM-killed on the first (cache-filling) run. Force a GC
+        # between players so peak memory stays bounded.
+        :erlang.garbage_collect()
+        result
       end)
 
     %{"as_of" => iso(as_of), "players" => players}
