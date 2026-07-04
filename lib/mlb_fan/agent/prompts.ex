@@ -76,8 +76,12 @@ defmodule MlbFan.Agent.Prompts do
   def question2(today) do
     "Today is #{Date.to_iso8601(today)}. From the players who homered yesterday, who is playing today " <>
       "and against which probable starting pitcher? Assess each hitter's chance of a strong game / home run " <>
-      "today (including multi-HR potential) using the pitcher's and hitter's stats plus deep research. Give each " <>
-      "a 1–10 confidence score, cite sources, and rank best-to-worst."
+      "today (including multi-HR potential) using the pitcher's and hitter's stats plus deep research. " <>
+      "Present the TOP 7 hitters by that potential, ranked best-to-worst, and give EACH of the 7 a full " <>
+      "writeup: a 1–10 confidence score, 2–4 supporting factors (recent form, handedness split vs the " <>
+      "pitcher, park factor, weather, pitcher HR/9), and cited source URLs. Do not stop after the first — " <>
+      "complete all 7. After the top 7, list the remaining hitters compactly (name · today's pitcher · " <>
+      "score) without full detail."
   end
 
   @doc "Append the disclaimer as a server-side safety net if the model omitted it."

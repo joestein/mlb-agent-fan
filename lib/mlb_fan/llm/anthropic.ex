@@ -20,7 +20,10 @@ defmodule MlbFan.Llm.Anthropic do
 
   @base_url "https://api.anthropic.com/v1/messages"
   @version "2023-06-01"
-  @max_tokens 4096
+  # Generous cap so a multi-part answer (e.g. the top-7 matchup writeups) isn't
+  # truncated after adaptive thinking consumes part of the budget. We always
+  # stream, so a large max_tokens carries no timeout risk.
+  @max_tokens 16_000
   @timeout 120_000
 
   @doc """
