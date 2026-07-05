@@ -66,9 +66,10 @@ defmodule MlbFan.Agent.Prompts do
   @doc "Default question #1 user turn (injects today ISO in America/New_York)."
   @spec question1(Date.t()) :: String.t()
   def question1(today) do
-    "Today is #{Date.to_iso8601(today)}. Show everyone who hit a home run yesterday and, for each, " <>
-      "their current HR streak and hitting streak. Sort by HR streak (highest first) and flag any multi-HR " <>
-      "games."
+    "today is #{Date.to_iso8601(today)} based on how everyone has been streaking on HR this year " <>
+      "based on their AB to HR ratio look back for each player to see who is due up to get a hit " <>
+      "then look at who they are pitching at and find me HR hitters for today also look at people " <>
+      "that have gotten a HR yesterday and might hit 2 in a row too"
   end
 
   @doc "Default question #2 user turn (injects today ISO)."
