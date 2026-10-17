@@ -235,6 +235,9 @@ The Hermes MCP server is mounted at `/mcp` (Streamable HTTP). An external MCP cl
 
 **Security note:** The `/mcp` endpoint is unauthenticated by design (single-user local research tool). Do not expose it on an untrusted network. The default Docker Compose configuration binds only to `localhost`.
 
+For an external Claude Code workflow combining MLB stats with optional Parallel
+web search and page fetching, see [Matchup research with Claude Code and Parallel](docs/external-research.md).
+
 ---
 
 ## Security Notes
